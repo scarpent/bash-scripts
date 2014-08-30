@@ -69,7 +69,7 @@ normal=$(echo -e '\033[0m')
 while true
 do
     # show branch and tracking info
-    git status -b | sed -n '1 p'
+    git status -sb | sed -n '1 p'
 
     if [[ $(git status -s | wc -l) -eq 0 ]]; then
         echo "${cyan}working directory clean${normal}"
