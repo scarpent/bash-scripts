@@ -68,17 +68,21 @@ while [ -n "$1" ]; do
     shift
 done
 
+function echo_copy_result {
+    echo $result
+    if [[ "$line_to_clipboard" == "true" ]]; then
+        # -n to suppress newline
+        echo -n "$result" | pbcopy
+    fi
+}
+
 if [[ "$line_echo" == "true" || "$line_to_clipboard" == "true" ]]; then
     # printf to suppress newline when copying to clipboard
     awk_param="NR==$line_number {printf}"
 
     if [[ -e "$results_file" && "$regex" == "" ]]; then
         result=$(awk "$awk_param" "$results_file")
-        echo $result
-        if [[ "$line_to_clipboard" == "true" ]]; then
-            # -n to suppress newline
-            echo -n "$result" | pbcopy
-        fi
+        echo_copy_result
         exit 0
     fi
 fi
@@ -91,10 +95,7 @@ if [[ "$preview" == "true" ]]; then
     echo "find $args ""'""$regex""'" >&2
 elif [[ "$line_echo" == "true" || "$line_to_clipboard" == "true" ]]; then
     result=$(find $args "$regex" | awk "$awk_param")
-    echo $result
-    if [[ "$line_to_clipboard" == "true" ]]; then
-        echo -n "$result" | pbcopy
-    fi
+    echo_copy_result
 elif [[ "$print_line_numbers" == "false" && "$save_results" == "false" ]]; then
     find $args "$regex"
 elif [[ "$print_line_numbers" == "true" && "$save_results" == "false" ]]; then
