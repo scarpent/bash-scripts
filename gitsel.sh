@@ -55,7 +55,7 @@ if [[ "$1" =~ -?-h(elp)? ]]; then
     exit 0
 fi
 
-user_command=$@
+user_input=$@
 
 # crude check to see if we're in a git rep
 git_status=$(git status -s)
@@ -100,36 +100,36 @@ do
     git status --porcelain | nl -n rn -w4 -s" " | sed -r "s/^(\s+[0-9]+\s)([^?])(.)(.+)$/\1${green}\2${red}\3${normal}\4/"
 
     echo
-    read -p "Command? (h/help, q/quit): " user_command
+    read -p "Command? (h/help, q/quit): " user_input
 
     # replace non-numbers with spaces, trim, and replace spaces with | separators
     # so will end up with single # or a group of #s like 2|3|1
-    the_number=$(echo "$user_command" | sed -r -e 's/[^0-9]/ /g' -e 's/^\s+|\s+$//g' -e 's/\s+/|/g')
-    the_letter=$(echo "$user_command" | sed 's/[^a-z]//g')
+    the_numbers=$(echo "$user_input" | sed -r -e 's/[^0-9]/ /g' -e 's/^\s+|\s+$//g' -e 's/\s+/|/g')
+    the_command=$(echo "$user_input" | sed 's/[^a-z]//g')
 
-    if [[ "$user_command" == "" ]]; then
+    if [[ "$user_input" == "" ]]; then
         exit 0  # hitting "enter" means we want to quit
     fi
 
-    if [[ "$the_letter" =~ ^(commit|push|pull)$ ]]; then
+    if [[ "$the_command" =~ ^(commit|push|pull)$ ]]; then
         # these will always work, even if a bad number is given
-        the_number=""
+        the_numbers=""
     fi
 
     # no number means all numbers
-    if [[ "$the_number" == "" ]]; then
+    if [[ "$the_numbers" == "" ]]; then
 
         # let's be careful about destructive commands
-        if [[ "$the_letter" =~ ^(rm|dis(card)?)$ ]]; then
+        if [[ "$the_command" =~ ^(rm|dis(card)?)$ ]]; then
             echo
-            read -p "Are you SURE you want to run ${red}$the_letter on ALL files${normal} (yes to confirm)? " -r
+            read -p "Are you SURE you want to run ${red}$the_command on ALL files${normal} (yes to confirm)? " -r
             if [[ ! $REPLY =~ ^[Yy]es$ ]]; then
                 echo -e "${cyan}caution wins the day${normal}"
                 continue
             fi
         fi
 
-        the_number="[0-9]+"  # all files
+        the_numbers="[0-9]+"  # all files
         all_selected=true
     else
         # they might have manually selected all files, of course, but:
@@ -148,7 +148,7 @@ do
     # sed handles situation of renames indicated by "->"; we'll just remove so
     #       each file is specified
     #
-    files=$(git status --porcelain | nl -n rn -w6 -s" " | egrep "^\s+(${the_number})\s" | cut -c11- | paste -d" " -s | sed 's/\s->//g')
+    files=$(git status --porcelain | nl -n rn -w6 -s" " | egrep "^\s+(${the_numbers})\s" | cut -c11- | paste -d" " -s | sed 's/\s->//g')
 
     if [[ "$files" == "" && "$all_selected" != "true" ]]; then
         echo "${red}no file selected${normal}"
@@ -157,7 +157,7 @@ do
 
     if [[ "$all_selected" == "true" ]]; then
         status="selected:${normal} all files"
-        if [[ "$the_letter" != "rm" && "$the_letter" != "c" ]]; then
+        if [[ "$the_command" != "rm" && "$the_command" != "c" ]]; then
             files="."
         fi
     else
@@ -168,23 +168,23 @@ do
     command_to_display=""
 
     # ----------------------------------------------------------------- git add
-    if [[ "$the_letter" == "a" ]]; then
+    if [[ "$the_command" == "a" ]]; then
         git add --all $files
         command_to_display="add "
 
     # ------------------------------------------------------- copy to clipboard
-    elif [[ "$the_letter" == "c" ]]; then
-        echo -n "$files" | pbcopy  # pbcopy is a mac osx the_letter
+    elif [[ "$the_command" == "c" ]]; then
+        echo -n "$files" | pbcopy  # pbcopy is a mac osx the_command
         status="selected file path(s) copied to clipboard:${normal} $files"
 
     # -------------------------------------------------------------- git commit
-    elif [[ "$the_letter" == "commit" ]]; then
+    elif [[ "$the_command" == "commit" ]]; then
         git commit
         command_to_display="commit "
         status="staged files"
 
     # ---------------------------------------------------------------- git diff
-    elif [[ "$the_letter" == "d" ]]; then
+    elif [[ "$the_command" == "d" ]]; then
         if [[ $(git diff --cached $files | wc -l) -gt 0 ]]; then
             echo "${cyan}diff on ${red}staged${cyan} file${normal}"
             git diff --cached $files
@@ -196,7 +196,7 @@ do
         command_to_display="diff "
 
     # ------------------------------------------------------------ git difftool
-    elif [[ "$the_letter" =~ ^d?t$ ]]; then
+    elif [[ "$the_command" =~ ^d?t$ ]]; then
         if [[ $(git diff --cached $files | wc -l) -gt 0 ]]; then
             echo "${cyan}difftool on ${red}staged${cyan} file${normal}"
             git difftool --cached  $files
@@ -208,53 +208,53 @@ do
         command_to_display="difftool "
 
     # ----------------------------------------------- discard (git checkout --)
-    elif [[ "$the_letter" =~ ^dis(card)?$ ]]; then
+    elif [[ "$the_command" =~ ^dis(card)?$ ]]; then
         git checkout -- $files
         command_to_display="discard changes for "
 
     # -------------------------------------------------------------------- help
-    elif [[ "$the_letter" =~ ^h(elp)?$ ]]; then
+    elif [[ "$the_command" =~ ^h(elp)?$ ]]; then
         echo -e $usage
         continue
 
     # ----------------------------------------------------------------- git log
-    elif [[ "$the_letter" =~ ^l(og)?$ ]]; then
+    elif [[ "$the_command" =~ ^l(og)?$ ]]; then
         git log --graph --pretty=format:"%Cred%h%Creset -%C(bold cyan)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset" --abbrev-commit -15 $files
         command_to_display="log "
 
     # ---------------------------------------------------------------- git pull
-    elif [[ "$the_letter" == "pull" ]]; then
+    elif [[ "$the_command" == "pull" ]]; then
         git pull
         command_to_display="pull "
         status=""
 
     # ---------------------------------------------------------------- git push
-    elif [[ "$the_letter" == "push" ]]; then
+    elif [[ "$the_command" == "push" ]]; then
         git push
         command_to_display="push "
         status=""
 
     # -------------------------------------------------------------------- quit
-    elif [[ "$the_letter" =~ ^q(uit)?$ ]]; then
+    elif [[ "$the_command" =~ ^q(uit)?$ ]]; then
         exit 0
 
     # ----------------------------------------------------------------- refresh
-    elif [[ "$the_letter" =~ ^r(efresh)?$ ]]; then
+    elif [[ "$the_command" =~ ^r(efresh)?$ ]]; then
         continue
 
     # ---------------------------------------------------------------------- rm
-    elif [[ "$the_letter" == "rm" ]]; then
+    elif [[ "$the_command" == "rm" ]]; then
         rm $files
         command_to_display="remove "
 
     # --------------------------------------------- unstage (git reset -q HEAD)
-    elif [[ "$the_letter" =~ ^un(stage)?$ ]]; then
+    elif [[ "$the_command" =~ ^un(stage)?$ ]]; then
         git reset -q HEAD $files
         command_to_display="unstage "
 
     # ----------------------------------------------------------------- unknown
-    elif [[ "$the_letter" != "" ]]; then
-        echo "${red}unknown command:${normal} $the_letter"
+    elif [[ "$the_command" != "" ]]; then
+        echo "${red}unknown command:${normal} $the_command"
     fi
 
     echo "${cyan}${command_to_display}${status}${normal}"
