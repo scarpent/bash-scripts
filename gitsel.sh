@@ -6,10 +6,10 @@ usage+="prompt: command [filenum]\n"
 usage+="\nAn interactive helper for some common git activities. You get a\n"
 usage+="git status listing with numbered files. You can then choose the\n"
 usage+="file number along with a command to run on the selected file\n"
-usage+="(\$file). Enter multiple files separated by spaces, or 0 for all\n"
-usage+="files. Some commands apply to all files, regardless of whether\n"
-usage+="a number is entered (e.g. commit). If no number is given for a\n"
-usage+="command that requires a file, the first file will be chosen.\n"
+usage+="(\$file). Enter multiple numbers separated by spaces to select\n"
+usage+="more than one file, or no number to select all files. Some\n"
+usage+="commands apply to all files, regardless of whether a number is\n"
+usage+="entered (e.g. commit).\n"
 
 usage+="\nThe format is flexible, as shown in the examples below.\n"
 
@@ -18,7 +18,7 @@ usage+="staged/working files by column and color coding. The column\n"
 usage+="header \"sw\" indicates staged vs working file status.\n"
 
 usage+="\nSadly, files with spaces in the name aren't handled. There's\n"
-usage+="just too much pain for not enough gain.\ns"
+usage+="just too much pain for not enough gain.\n"
 
 usage+="\ncommands:\n"
 
@@ -27,14 +27,14 @@ usage+="\tc\tcopy \$file path to the clipboard\n"
 usage+="\t\t\t(currently assumes Mac OSX pbcopy)\n"
 usage+="\tcommit\tgit commit staged files\n"
 usage+="\td\tgit diff \$file (will show staged diff, too!)\n"
-usage+="\tdt\tgit difftool \$file (alsso: t)\n"
-usage+="\tdis\tgit checkout -- \$file (also: discard)\n"
+usage+="\tdt\tgit difftool \$file (also: t)\n"
+usage+="\tdiscard\tgit checkout -- \$file (also: dis)\n"
 usage+="\tl\tgit log \$file (also: log)\n"
 usage+="\t\t\t(15 lines w/ pretty formatting)\n"
 usage+="\tpull\tgit pull\n"
 usage+="\tpush\tgit push\n"
 usage+="\tr\trefresh status (also: refresh)\n"
-usage+="\trm\tremove a file (note: normal rm, not git rm)\n"
+usage+="\trm\tremove file (note: normal rm, not git rm)\n"
 usage+="\tun\tgit reset HEAD \$file (also: unstage)\n"
 
 usage+="\nexamples:\n"
@@ -43,8 +43,12 @@ usage+="\tt3\trun git difftool on file #3\n"
 usage+="\tdt 3 4\trun git difftool on files #3 and #4\n"
 usage+="\ta 1\trun git add on file #1\n"
 usage+="\t1 2 c\tcopy file #1 and #2 paths to clipboard\n"
-usage+="\t0 c\tcopy all file paths to clipboard\n"
+usage+="\tc\tcopy all file paths to clipboard\n"
 usage+="\t3\tno command chosen; echoes the selected file\n"
+usage+="\trm\tremove all files (you'll be prompted to confirm!)\n"
+usage+="\tdiscard\tdiscard all working changes (again prompted)\n"
+
+# todo: add warning that discard and rm just as destructive as in real life (rm as far as new files that aren't yet in the index)
 
 if [[ "$1" =~ -?-h(elp)? ]]; then
     echo -e $usage
@@ -77,14 +81,23 @@ do
         echo -e "     sw"   # staging / working
     fi
 
-    # --porcelain a more future-proof version of -s for scripting
-    #git status --porcelain | nl
+    # show the files!
+    #
+    # git status --porcelain a more future-proof version of -s for scripting
+    #
     # nl -n rn -w4 -s" "
     #       -n    rn is default right-adjusted w/ suppressed leading zeros
     #       -w4   line number uses 4 chars
     #       -s" " separator between number and line is a space
-    # colorize
-    git status --porcelain | nl -n rn -w4 -s" " | sed -r "s/^( +[0-9]+ )([^?])(.)(.+)$/\1${green}\2${red}\3${normal}\4/"
+    # sed to replace parts with color:
+    #       ^(\s+[0-9]+\s)      the number (no color)
+    #       ([^?])              staging status (green)
+    #       (.)                 working status (red)
+    #       (.+)$               file (no color)
+    #
+    #       if file is new and not in git, the status will be ??, in which
+    #       case the [^?] will cause a non-match, so no coloring
+    git status --porcelain | nl -n rn -w4 -s" " | sed -r "s/^(\s+[0-9]+\s)([^?])(.)(.+)$/\1${green}\2${red}\3${normal}\4/"
 
     echo
     read -p "Command? (h/help, q/quit): " user_command
@@ -98,21 +111,60 @@ do
         exit 0  # hitting "enter" means we want to quit
     fi
 
+    if [[ "$the_letter" =~ ^(commit|push|pull)$ ]]; then
+        # these will always work, even if a bad number is given
+        the_number=""
+    fi
+
+    # no number means all numbers
     if [[ "$the_number" == "" ]]; then
-        the_number=1  # default file selection
-    fi
 
-    if [[ "$the_number" =~ 0+ ]]; then
+        # let's be careful about destructive commands
+        if [[ "$the_letter" =~ ^(rm|dis(card)?)$ ]]; then
+            echo
+            read -p "Are you SURE you want to run ${red}$the_letter on ALL files${normal} (yes to confirm)? " -r
+            if [[ ! $REPLY =~ ^[Yy]es$ ]]; then
+                echo -e "${cyan}caution wins the day${normal}"
+                continue
+            fi
+        fi
+
         the_number="[0-9]+"  # all files
+        all_selected=true
+    else
+        # they might have manually selected all files, of course, but:
+        all_selected=false
     fi
 
-    #echo "cmd= $user_command, num = $the_number, letter = $the_letter"
-
-    # use nl again to get a listing with a format we can match our numbers
+    # get list of files
+    #
+    # use nl again to get listing with standard format to match our numbers
     # against and then cut the line number and status off
-    files=$(git status --porcelain | nl -n rn -w6 -s" " | egrep "^\s+($the_number)\s+" | cut -c11- | paste -d" " -s)
+    # nl to set numbered format we can match with following egrep and then cut
+    # egrep selects on single num, e.g. (2), or multiple, e.g. (1|3|7),
+    #       or ([0-9]+) for all; (important to wrap with parens!)
+    # cut takes filename from expected point after statuses
+    # paste turns into a single line with space delimiters
+    # sed handles situation of renames indicated by "->"; we'll just remove so
+    #       each file is specified
+    #
+    files=$(git status --porcelain | nl -n rn -w6 -s" " | egrep "^\s+(${the_number})\s" | cut -c11- | paste -d" " -s | sed 's/\s->//g')
 
-    status="selected:${normal} $files"
+    if [[ "$files" == "" && "$all_selected" != "true" ]]; then
+        echo "${red}no file selected${normal}"
+        continue
+    fi
+
+    if [[ "$all_selected" == "true" ]]; then
+        status="selected:${normal} all files"
+        if [[ "$the_letter" != "rm" && "$the_letter" != "c" ]]; then
+            files="."
+        fi
+    else
+        status="selected:${normal} $files"
+    fi
+
+
     command_to_display=""
 
     # ----------------------------------------------------------------- git add
@@ -155,19 +207,20 @@ do
         fi
         command_to_display="difftool "
 
-    # -------------------------------------------------------------------- help
-    elif [[ "$the_letter" =~ ^h(elp)?$ ]]; then
-        echo -e $usage
-        continue
-
     # ----------------------------------------------- discard (git checkout --)
     elif [[ "$the_letter" =~ ^dis(card)?$ ]]; then
         git checkout -- $files
         command_to_display="discard changes for "
 
+    # -------------------------------------------------------------------- help
+    elif [[ "$the_letter" =~ ^h(elp)?$ ]]; then
+        echo -e $usage
+        continue
+
     # ----------------------------------------------------------------- git log
     elif [[ "$the_letter" =~ ^l(og)?$ ]]; then
-        git log --graph --pretty=format:"%Cred%h%Creset -%C(bold cyan)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset" --abbrev-commit -15 "$file"
+        git log --graph --pretty=format:"%Cred%h%Creset -%C(bold cyan)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset" --abbrev-commit -15 $files
+        command_to_display="log "
 
     # ---------------------------------------------------------------- git pull
     elif [[ "$the_letter" == "pull" ]]; then
