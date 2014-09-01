@@ -45,12 +45,12 @@ fi
 searchfor="$*"
 
 # http://stackoverflow.com/questions/8715295/need-help-coloring-replacing-arbitrary-strings-using-bash-and-sed
-NORMAL=$(tput sgr0)
-RED=$(tput setaf 1)
-GREEN=$(tput setaf 2)
-CYAN=$(tput setaf 6)
-FILECOLOR=$CYAN
-REPLACE=$RED
+normal=$(tput sgr0)
+red=$(tput setaf 1)
+green=$(tput setaf 2)
+cyan=$(tput setaf 6)
+filecolor=$cyan
+replace=$red
 
 grep_options="-E $ignore_case $recursive $exclude_dirs $list_filenames_only"
 
@@ -62,8 +62,8 @@ if [[ "$list_filenames_only" = "-l" ]]; then
     fi
 else
     if [[ "$show_path" = "-p" ]]; then
-        grep $grep_options "$searchfor" * | sed -r 's/\s+/ /g' | sed -r "s/(^[^:]*+:)/$FILECOLOR\1$NORMAL/g$sedi" | sed -r "s/($searchfor)/$REPLACE\1$NORMAL/g$sedi"
+        grep $grep_options "$searchfor" * | sed -r -e 's/\s+/ /g' -e "s/(^[^:]*+:)/${filecolor}\1${normal}/g$sedi" -e "s/($searchfor)/${replace}\1${normal}/g$sedi"
     else
-        grep $grep_options "$searchfor" * | sed -r 's/\s+/ /g' | sed -r 's/^[^:]*\///' | sed -r "s/(^[^:]+:)/$FILECOLOR\1$NORMAL/g$sedi" | sed -r "s/($searchfor)/$REPLACE\1$NORMAL/g$sedi"
+        grep $grep_options "$searchfor" * | sed -r -e 's/\s+/ /g' -e 's/^[^:]*\///' -e "s/(^[^:]+:)/${filecolor}\1${normal}/g$sedi" -e "s/($searchfor)/${replace}\1${normal}/g$sedi"
     fi
 fi
