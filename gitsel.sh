@@ -100,7 +100,8 @@ do
     git status --porcelain | nl -n rn -w4 -s" " | sed -r "s/^(\s+[0-9]+\s)([^?])(.)(.+)$/\1${green}\2${red}\3${normal}\4/"
 
     echo
-    read -p "Command? (h/help, q/quit): " user_input
+    read -ep "Command? (h/help, q/quit): " user_input
+    history -s $user_input
 
     # replace non-numbers with spaces, trim, and replace spaces with | separators
     # so will end up with single # or a group of #s like 2|3|1
