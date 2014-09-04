@@ -48,8 +48,6 @@ usage+="\t3\tno command chosen; echoes the selected file\n"
 usage+="\trm\tremove all files (you'll be prompted to confirm!)\n"
 usage+="\tdiscard\tdiscard all working changes (again prompted)\n"
 
-# todo: add warning that discard and rm just as destructive as in real life (rm as far as new files that aren't yet in the index)
-
 if [[ "$1" =~ -?-h(elp)? ]]; then
     echo -e $usage
     exit 0
