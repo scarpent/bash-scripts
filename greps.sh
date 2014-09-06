@@ -1,7 +1,7 @@
 #!/bin/bash
 
 usage="grep helper\n"
-usage="usage: greps [-Ilp] [-e dir] PATTERN\n\n"
+usage+="\nusage: greps [-Ilp] [-e dir] PATTERN\n\n"
 usage+="searches on all files/dirs (*), so don't specify this\n\n"
 usage+="options:\n"
 usage+="\t-e\texclude dir\n"
