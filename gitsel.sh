@@ -81,7 +81,11 @@ do
 
     # show the files!
     #
-    # git status --porcelain a more future-proof version of -s for scripting
+    # git status -s for short format
+    #
+    # -porcelain is a more future-proof version of -s for scripting, but always
+    # shows paths relative to repo root, which throws off our operations below
+    # when not in the root
     #
     # nl -n rn -w4 -s" "
     #       -n    rn is default right-adjusted w/ suppressed leading zeros
@@ -95,7 +99,7 @@ do
     #
     #       if file is new and not in git, the status will be ??, in which
     #       case the [^?] will cause a non-match, so no coloring
-    git status --porcelain | nl -n rn -w4 -s" " | sed -r "s/^(\s+[0-9]+\s)([^?])(.)(.+)$/\1${green}\2${red}\3${normal}\4/"
+    git status -s | nl -n rn -w4 -s" " | sed -r "s/^(\s+[0-9]+\s)([^?])(.)(.+)$/\1${green}\2${red}\3${normal}\4/"
 
     echo
     read -ep "Command? (h/help, q/quit): " user_input
@@ -147,7 +151,7 @@ do
     # sed handles situation of renames indicated by "->"; we'll just remove so
     #       each file is specified
     #
-    files=$(git status --porcelain | nl -n rn -w6 -s" " | egrep "^\s+(${the_numbers})\s" | cut -c11- | paste -d" " -s | sed 's/\s->//g')
+    files=$(git status -s | nl -n rn -w6 -s" " | egrep "^\s+(${the_numbers})\s" | cut -c11- | paste -d" " -s | sed 's/\s->//g')
 
     if [[ "$files" == "" && "$all_selected" != "true" ]]; then
         echo "${red}no file selected${normal}"
