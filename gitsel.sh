@@ -63,10 +63,10 @@ fi
 
 # for colorization
 start="\033"
-red=$(echo -e "${start}[0;31m")
-green=$(echo -e "${start}[0;32m")
-cyan=$(echo -e "${start}[0;36m")
-normal=$(echo -e '\033[0m')
+red=$(tput setaf 1)
+green=$(tput setaf 2)
+cyan=$(tput setaf 6)
+normal=$(tput sgr0)    # reset color
 
 while true
 do
